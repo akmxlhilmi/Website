@@ -47,6 +47,40 @@
             margin-bottom: 18px;
         }
 
+        .sync-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 18px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e3a8a;
+            font-size: 0.94rem;
+            line-height: 1.5;
+        }
+
+        .sync-banner.local {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            color: #334155;
+        }
+
+        .sync-banner.error {
+            background: #fff1f2;
+            border-color: #fecdd3;
+            color: #9f1239;
+        }
+
+        .sync-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: currentColor;
+            flex-shrink: 0;
+        }
+
         .user-header {
             display: flex;
             flex-direction: column;
@@ -767,6 +801,11 @@
             </div>
         </div>
 
+        <div class="sync-banner local" id="syncBanner">
+            <span class="sync-dot"></span>
+            <span id="syncStatus">Local mode only. Add your Supabase config in supabase-config.js to sync this calendar across devices.</span>
+        </div>
+
         <div class="calendar-section">
             <div class="calendar-header">
                 <div class="month-navigation">
@@ -837,9 +876,14 @@
         </div>
     </div>
 
-    <script>
+    <script src="./supabase-config.js"></script>
+    <script type="module">
+        import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
         (function () {
             const ADMIN_USER = "Admin";
+            const SUPABASE_POLL_INTERVAL_MS = 30000;
+            const supabaseConfig = window.CALENDAR_SUPABASE || {};
             let users = [];
             let currentUser = "";
             let freeTimeEntries = [];
@@ -847,6 +891,60 @@
             let selectedDates = new Set();
             let removalDates = new Set();
             let resizeTimer = null;
+            let supabase = null;
+            let usingSupabase = false;
+            let supabaseReady = false;
+            let realtimeChannel = null;
+            let syncPollTimer = null;
+            let remoteRefreshPromise = null;
+            let remoteRefreshQueued = false;
+            let remoteUsersCache = [];
+            let remoteEntriesCache = [];
+            let localBackupUsers = [];
+            let localBackupEntries = [];
+
+            function getSyncBanner() {
+                return document.getElementById("syncBanner");
+            }
+
+            function updateSyncStatus(message, mode) {
+                const banner = getSyncBanner();
+                const status = document.getElementById("syncStatus");
+                banner.className = `sync-banner ${mode || "local"}`;
+                status.textContent = message;
+            }
+
+            function getErrorMessage(error) {
+                if (error && typeof error.message === "string" && error.message.trim()) {
+                    return error.message;
+                }
+
+                return "Unknown error";
+            }
+
+            function hasSupabaseConfig() {
+                const url = typeof supabaseConfig.url === "string" ? supabaseConfig.url.trim() : "";
+                const anonKey = typeof supabaseConfig.anonKey === "string" ? supabaseConfig.anonKey.trim() : "";
+
+                return Boolean(
+                    url
+                    && anonKey
+                    && !url.includes("your-project")
+                    && anonKey !== "your-anon-key"
+                );
+            }
+
+            function getSupabaseClient() {
+                if (!supabase) {
+                    throw new Error("Supabase client is not ready.");
+                }
+
+                return supabase;
+            }
+
+            function buildEntryId(user, dateKey) {
+                return `${user}-${dateKey}`;
+            }
 
             function isAdmin(user) {
                 return user === ADMIN_USER;
@@ -909,8 +1007,8 @@
 
                 for (let index = 1; index < dateKeys.length; index += 1) {
                     const previousDate = parseDateKey(rangeEnd);
-                    const currentDate = parseDateKey(dateKeys[index]);
-                    const dayGap = Math.round((currentDate - previousDate) / 86400000);
+                    const currentDateValue = parseDateKey(dateKeys[index]);
+                    const dayGap = Math.round((currentDateValue - previousDate) / 86400000);
 
                     if (dayGap === 1) {
                         rangeEnd = dateKeys[index];
@@ -971,7 +1069,7 @@
                     const key = `${entry.user}|${entry.date}`;
                     if (!uniqueMap.has(key)) {
                         uniqueMap.set(key, {
-                            id: entry.id || `${entry.user}-${entry.date}`,
+                            id: entry.id || buildEntryId(entry.user, entry.date),
                             user: entry.user,
                             date: entry.date,
                             timestamp: entry.timestamp || new Date().toISOString()
@@ -982,19 +1080,51 @@
                 return Array.from(uniqueMap.values()).sort((a, b) => a.date.localeCompare(b.date));
             }
 
+            function mapRemoteEntry(row) {
+                if (!row || !row.user_name || !row.date_key) {
+                    return null;
+                }
+
+                return {
+                    id: row.id || buildEntryId(row.user_name, row.date_key),
+                    user: row.user_name,
+                    date: row.date_key,
+                    timestamp: row.created_at || new Date().toISOString()
+                };
+            }
+
+            function toRemoteEntryRow(entry) {
+                return {
+                    id: entry.id || buildEntryId(entry.user, entry.date),
+                    user_name: entry.user,
+                    date_key: entry.date,
+                    created_at: entry.timestamp || new Date().toISOString()
+                };
+            }
+
+            function saveCurrentUserPreference() {
+                localStorage.setItem("freeTimeCurrentUser", currentUser || "");
+            }
+
             function loadData() {
                 try {
                     const savedUsers = localStorage.getItem("freeTimeUsers");
                     const savedEntries = localStorage.getItem("freeTimeEntries");
+                    const savedCurrentUser = localStorage.getItem("freeTimeCurrentUser");
                     if (savedUsers) {
                         users = JSON.parse(savedUsers);
                     }
                     if (savedEntries) {
                         freeTimeEntries = normalizeEntries(JSON.parse(savedEntries));
                     }
+                    if (savedCurrentUser) {
+                        currentUser = savedCurrentUser;
+                    }
                 } catch (error) {
                     console.warn("Load error", error);
+                    users = [];
                     freeTimeEntries = [];
+                    currentUser = "";
                 }
             }
 
@@ -1002,9 +1132,328 @@
                 freeTimeEntries = normalizeEntries(freeTimeEntries);
                 localStorage.setItem("freeTimeUsers", JSON.stringify(users));
                 localStorage.setItem("freeTimeEntries", JSON.stringify(freeTimeEntries));
+                saveCurrentUserPreference();
             }
 
-            function addNewUser() {
+            function renderAll() {
+                updateUserSelect();
+                updateSelectionToolbar();
+                renderCalendar();
+                updateSummary();
+            }
+
+            function applyRemoteState() {
+                const uniqueUsers = Array.from(new Set([
+                    ...remoteUsersCache,
+                    ...remoteEntriesCache.map((entry) => entry.user)
+                ].filter(Boolean)));
+
+                users = uniqueUsers;
+                ensureAdminUser();
+                freeTimeEntries = normalizeEntries(remoteEntriesCache);
+
+                if (!currentUser || !users.includes(currentUser)) {
+                    currentUser = users.find((user) => !isAdmin(user)) || ADMIN_USER;
+                }
+
+                saveData();
+                renderAll();
+            }
+
+            async function fetchRemoteUsers() {
+                const client = getSupabaseClient();
+                const { data, error } = await client
+                    .from("calendar_users")
+                    .select("name")
+                    .order("name", { ascending: true });
+
+                if (error) {
+                    throw error;
+                }
+
+                return (data || []).map((row) => row.name).filter(Boolean);
+            }
+
+            async function fetchRemoteEntries() {
+                const client = getSupabaseClient();
+                const { data, error } = await client
+                    .from("calendar_entries")
+                    .select("id, user_name, date_key, created_at")
+                    .order("date_key", { ascending: true })
+                    .order("user_name", { ascending: true });
+
+                if (error) {
+                    throw error;
+                }
+
+                return normalizeEntries((data || []).map(mapRemoteEntry).filter(Boolean));
+            }
+
+            async function refreshRemoteState(options = {}) {
+                const applyState = options.applyState !== false;
+
+                if (remoteRefreshPromise) {
+                    remoteRefreshQueued = true;
+                    return remoteRefreshPromise;
+                }
+
+                remoteRefreshPromise = (async () => {
+                    const [fetchedUsers, fetchedEntries] = await Promise.all([
+                        fetchRemoteUsers(),
+                        fetchRemoteEntries()
+                    ]);
+
+                    remoteUsersCache = fetchedUsers;
+                    remoteEntriesCache = fetchedEntries;
+
+                    if (applyState) {
+                        applyRemoteState();
+                    }
+                })();
+
+                try {
+                    await remoteRefreshPromise;
+                } finally {
+                    remoteRefreshPromise = null;
+
+                    if (remoteRefreshQueued) {
+                        remoteRefreshQueued = false;
+                        await refreshRemoteState({ applyState: true });
+                    }
+                }
+            }
+
+            async function upsertRemoteUser(user) {
+                const client = getSupabaseClient();
+                const { error } = await client
+                    .from("calendar_users")
+                    .upsert({
+                        name: user,
+                        updated_at: new Date().toISOString()
+                    }, {
+                        onConflict: "name"
+                    });
+
+                if (error) {
+                    throw error;
+                }
+            }
+
+            async function addEntriesToSupabase(entriesToAdd) {
+                if (!entriesToAdd.length) {
+                    return;
+                }
+
+                const client = getSupabaseClient();
+                const { error } = await client
+                    .from("calendar_entries")
+                    .upsert(entriesToAdd.map(toRemoteEntryRow), {
+                        onConflict: "id"
+                    });
+
+                if (error) {
+                    throw error;
+                }
+            }
+
+            async function removeEntriesFromSupabase(entriesToRemove) {
+                const entryIds = entriesToRemove.map((entry) => entry.id || buildEntryId(entry.user, entry.date));
+
+                if (!entryIds.length) {
+                    return;
+                }
+
+                const client = getSupabaseClient();
+                const { error } = await client
+                    .from("calendar_entries")
+                    .delete()
+                    .in("id", entryIds);
+
+                if (error) {
+                    throw error;
+                }
+            }
+
+            async function deleteUserFromSupabase(targetUser) {
+                const client = getSupabaseClient();
+                const { error } = await client
+                    .from("calendar_users")
+                    .delete()
+                    .eq("name", targetUser);
+
+                if (error) {
+                    throw error;
+                }
+            }
+
+            async function seedSupabaseFromLocalData(seedUsersInput, seedEntriesInput) {
+                const seedEntries = normalizeEntries(seedEntriesInput || []);
+                const seedUsers = Array.from(new Set([
+                    ADMIN_USER,
+                    ...(seedUsersInput || []).filter(Boolean),
+                    ...seedEntries.map((entry) => entry.user)
+                ]));
+                const userRows = seedUsers.map((user) => ({
+                    name: user,
+                    updated_at: new Date().toISOString()
+                }));
+                const client = getSupabaseClient();
+                const { error: usersError } = await client
+                    .from("calendar_users")
+                    .upsert(userRows, {
+                        onConflict: "name"
+                    });
+
+                if (usersError) {
+                    throw usersError;
+                }
+
+                if (!seedEntries.length) {
+                    return;
+                }
+
+                const { error: entriesError } = await client
+                    .from("calendar_entries")
+                    .upsert(seedEntries.map(toRemoteEntryRow), {
+                        onConflict: "id"
+                    });
+
+                if (entriesError) {
+                    throw entriesError;
+                }
+            }
+
+            async function handleInitialRemoteState() {
+                await upsertRemoteUser(ADMIN_USER);
+                await refreshRemoteState({ applyState: false });
+
+                let remoteHasMeaningfulData = remoteEntriesCache.length > 0 || remoteUsersCache.some((user) => !isAdmin(user));
+                const localHasMeaningfulData = localBackupEntries.length > 0 || localBackupUsers.some((user) => !isAdmin(user));
+
+                if (!remoteHasMeaningfulData && localHasMeaningfulData) {
+                    const shouldSeed = confirm("Supabase is connected, but the online calendar is empty. Upload this device's current local calendar data to Supabase?");
+
+                    if (shouldSeed) {
+                        await seedSupabaseFromLocalData(localBackupUsers, localBackupEntries);
+                        await refreshRemoteState({ applyState: false });
+                        remoteHasMeaningfulData = true;
+                    }
+                }
+
+                if (remoteHasMeaningfulData || !localHasMeaningfulData) {
+                    applyRemoteState();
+                }
+
+                supabaseReady = true;
+                updateSyncStatus("Supabase sync is live. Changes will appear on other devices using the same project.", "live");
+            }
+
+            function stopSyncPolling() {
+                if (syncPollTimer) {
+                    window.clearInterval(syncPollTimer);
+                    syncPollTimer = null;
+                }
+            }
+
+            function startSyncPolling() {
+                stopSyncPolling();
+                syncPollTimer = window.setInterval(() => {
+                    if (!usingSupabase || !supabaseReady) {
+                        return;
+                    }
+
+                    refreshRemoteState().catch((error) => {
+                        console.error("Supabase polling failed", error);
+                        updateSyncStatus(`Supabase polling failed: ${getErrorMessage(error)}`, "error");
+                    });
+                }, SUPABASE_POLL_INTERVAL_MS);
+            }
+
+            function handleRealtimeRefresh() {
+                if (!usingSupabase || !supabaseReady) {
+                    return;
+                }
+
+                refreshRemoteState().catch((error) => {
+                    console.error("Supabase realtime refresh failed", error);
+                    updateSyncStatus(`Supabase sync refresh failed: ${getErrorMessage(error)}`, "error");
+                });
+            }
+
+            function subscribeToRealtimeChanges() {
+                const client = getSupabaseClient();
+
+                if (realtimeChannel) {
+                    client.removeChannel(realtimeChannel);
+                    realtimeChannel = null;
+                }
+
+                realtimeChannel = client
+                    .channel("calendar-sync")
+                    .on("postgres_changes", {
+                        event: "*",
+                        schema: "public",
+                        table: "calendar_users"
+                    }, handleRealtimeRefresh)
+                    .on("postgres_changes", {
+                        event: "*",
+                        schema: "public",
+                        table: "calendar_entries"
+                    }, handleRealtimeRefresh)
+                    .subscribe((status) => {
+                        if (status === "SUBSCRIBED") {
+                            updateSyncStatus("Supabase sync is live. Changes will appear on other devices using the same project.", "live");
+                            return;
+                        }
+
+                        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+                            updateSyncStatus("Supabase is connected, but live updates are unavailable. Polling every 30 seconds instead.", "local");
+                        }
+                    });
+            }
+
+            async function connectSupabase() {
+                if (!hasSupabaseConfig()) {
+                    updateSyncStatus("Local mode only. Add your Supabase config in supabase-config.js to sync this calendar across devices.", "local");
+                    return;
+                }
+
+                try {
+                    updateSyncStatus("Connecting to Supabase...", "live");
+
+                    if (!supabase) {
+                        supabase = createClient(supabaseConfig.url, supabaseConfig.anonKey, {
+                            auth: {
+                                persistSession: false,
+                                autoRefreshToken: false
+                            }
+                        });
+                    }
+
+                    usingSupabase = true;
+                    localBackupUsers = users.slice();
+                    localBackupEntries = freeTimeEntries.slice();
+
+                    await refreshRemoteState({ applyState: false });
+                    await handleInitialRemoteState();
+                    startSyncPolling();
+                    subscribeToRealtimeChanges();
+                } catch (error) {
+                    console.error("Supabase initialization failed", error);
+                    usingSupabase = false;
+                    supabaseReady = false;
+                    stopSyncPolling();
+
+                    if (supabase && realtimeChannel) {
+                        supabase.removeChannel(realtimeChannel);
+                        realtimeChannel = null;
+                    }
+
+                    updateSyncStatus(`Supabase setup failed: ${getErrorMessage(error)}`, "error");
+                }
+            }
+
+            async function addNewUser() {
                 const input = document.getElementById("newUserName");
                 const newUserName = input.value.trim();
 
@@ -1018,16 +1467,27 @@
                     return;
                 }
 
-                users.push(newUserName);
-                currentUser = newUserName;
-                input.value = "";
-                selectedDates.clear();
-                removalDates.clear();
-                saveData();
-                updateUserSelect();
-                updateSelectionToolbar();
-                renderCalendar();
-                updateSummary();
+                if (!/^[A-Za-z0-9 _-]{1,20}$/.test(newUserName)) {
+                    alert("Use only letters, numbers, spaces, hyphens, or underscores.");
+                    return;
+                }
+
+                try {
+                    if (usingSupabase) {
+                        await upsertRemoteUser(newUserName);
+                    }
+
+                    users.push(newUserName);
+                    currentUser = newUserName;
+                    input.value = "";
+                    selectedDates.clear();
+                    removalDates.clear();
+                    saveData();
+                    renderAll();
+                } catch (error) {
+                    console.error("Add user failed", error);
+                    alert(`Could not add user. ${getErrorMessage(error)}`);
+                }
             }
 
             function updateUserSelect() {
@@ -1048,6 +1508,7 @@
                     currentUser = event.target.value;
                     selectedDates.clear();
                     removalDates.clear();
+                    saveCurrentUserPreference();
                     updateSelectionToolbar();
                     renderCalendar();
                     updateSummary();
@@ -1191,7 +1652,7 @@
                 }
             }
 
-            function confirmSelectedDays() {
+            async function confirmSelectedDays() {
                 if (!currentUser) {
                     alert("Please select a user first.");
                     return;
@@ -1221,22 +1682,31 @@
                     return;
                 }
 
-                newDates.forEach((dateKey) => {
-                    freeTimeEntries.push({
-                        id: `${currentUser}-${dateKey}`,
+                const entriesToAdd = newDates.map((dateKey) => {
+                    return {
+                        id: buildEntryId(currentUser, dateKey),
                         user: currentUser,
                         date: dateKey,
                         timestamp: new Date().toISOString()
-                    });
+                    };
                 });
 
-                freeTimeEntries = normalizeEntries(freeTimeEntries);
-                saveData();
-                clearSelectedDays();
-                updateSummary();
+                try {
+                    if (usingSupabase) {
+                        await addEntriesToSupabase(entriesToAdd);
+                    }
+
+                    freeTimeEntries = normalizeEntries([...freeTimeEntries, ...entriesToAdd]);
+                    saveData();
+                    clearSelectedDays();
+                    updateSummary();
+                } catch (error) {
+                    console.error("Save days failed", error);
+                    alert(`Could not save the selected days. ${getErrorMessage(error)}`);
+                }
             }
 
-            function deleteSelectedUser() {
+            async function deleteSelectedUser() {
                 if (!isAdmin(currentUser)) {
                     alert("Only the Admin user can delete users.");
                     return;
@@ -1262,15 +1732,21 @@
                     return;
                 }
 
-                users = users.filter((user) => user !== targetUser);
-                freeTimeEntries = freeTimeEntries.filter((entry) => entry.user !== targetUser);
-                selectedDates.clear();
-                removalDates.clear();
-                saveData();
-                updateUserSelect();
-                updateSelectionToolbar();
-                renderCalendar();
-                updateSummary();
+                try {
+                    if (usingSupabase) {
+                        await deleteUserFromSupabase(targetUser);
+                    }
+
+                    users = users.filter((user) => user !== targetUser);
+                    freeTimeEntries = freeTimeEntries.filter((entry) => entry.user !== targetUser);
+                    selectedDates.clear();
+                    removalDates.clear();
+                    saveData();
+                    renderAll();
+                } catch (error) {
+                    console.error("Delete user failed", error);
+                    alert(`Could not delete user. ${getErrorMessage(error)}`);
+                }
             }
 
             function renderCalendar() {
@@ -1471,7 +1947,7 @@
                 document.getElementById("removeSelectedBtn").disabled = removalDates.size === 0;
             }
 
-            function removeSelectedDays() {
+            async function removeSelectedDays() {
                 if (!removalDates.size) {
                     alert("Select at least one day to remove.");
                     return;
@@ -1481,14 +1957,27 @@
                     return;
                 }
 
-                freeTimeEntries = freeTimeEntries.filter((entry) => {
-                    return !(entry.user === currentUser && removalDates.has(entry.date));
+                const entriesToRemove = freeTimeEntries.filter((entry) => {
+                    return entry.user === currentUser && removalDates.has(entry.date);
                 });
 
-                saveData();
-                closeManageDays();
-                renderCalendar();
-                updateSummary();
+                try {
+                    if (usingSupabase) {
+                        await removeEntriesFromSupabase(entriesToRemove);
+                    }
+
+                    freeTimeEntries = freeTimeEntries.filter((entry) => {
+                        return !(entry.user === currentUser && removalDates.has(entry.date));
+                    });
+
+                    saveData();
+                    closeManageDays();
+                    renderCalendar();
+                    updateSummary();
+                } catch (error) {
+                    console.error("Remove days failed", error);
+                    alert(`Could not remove the selected days. ${getErrorMessage(error)}`);
+                }
             }
 
             function showAllFreeTime() {
@@ -1510,25 +1999,27 @@
                 alert(message);
             }
 
-            function init() {
+            async function init() {
                 loadData();
                 const hadAdminUser = users.includes(ADMIN_USER);
                 ensureAdminUser();
 
-                if (users.length === 1) {
+                if (currentUser && !users.includes(currentUser)) {
+                    currentUser = "";
+                }
+
+                if (!currentUser && users.length === 1) {
                     currentUser = ADMIN_USER;
                     saveData();
-                } else {
+                } else if (!currentUser) {
                     currentUser = users.find((user) => !isAdmin(user)) || ADMIN_USER;
                     if (!hadAdminUser) {
                         saveData();
                     }
                 }
 
-                updateUserSelect();
-                updateSelectionToolbar();
-                renderCalendar();
-                updateSummary();
+                renderAll();
+                await connectSupabase();
             }
 
             window.previousMonth = () => {
@@ -1559,6 +2050,12 @@
             window.addEventListener("resize", () => {
                 clearTimeout(resizeTimer);
                 resizeTimer = setTimeout(renderCalendar, 120);
+            });
+
+            document.addEventListener("visibilitychange", () => {
+                if (!document.hidden) {
+                    handleRealtimeRefresh();
+                }
             });
 
             document.getElementById("sharedUserFilter").addEventListener("change", updateSharedSummary);
