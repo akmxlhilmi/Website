@@ -343,6 +343,8 @@
             cursor: default;
             background: #f8fafc;
             border-color: #cbd5e1;
+            pointer-events: none;
+            user-select: none;
         }
 
         .calendar-day.past-day:hover,
@@ -1040,8 +1042,18 @@
                 return ranges;
             }
 
+            function startOfDay(date) {
+                const normalizedDate = new Date(date);
+                normalizedDate.setHours(0, 0, 0, 0);
+                return normalizedDate;
+            }
+
+            function getTodayDate() {
+                return startOfDay(new Date());
+            }
+
             function getTodayKey() {
-                return formatDateKey(new Date());
+                return formatDateKey(getTodayDate());
             }
 
             function formatSharedUserList(usersForDate) {
@@ -1540,7 +1552,7 @@
             }
 
             function isPastDateKey(dateKey) {
-                return dateKey < getTodayKey();
+                return startOfDay(parseDateKey(dateKey)).getTime() < getTodayDate().getTime();
             }
 
             function prunePastSelectedDates() {
@@ -1706,7 +1718,9 @@
                     renderCalendar();
                 }
 
-                const dateKeys = Array.from(selectedDates).sort();
+                const dateKeys = Array.from(selectedDates)
+                    .filter((dateKey) => !isPastDateKey(dateKey))
+                    .sort();
                 if (!dateKeys.length) {
                     alert("Select at least one day first.");
                     return;
@@ -1856,6 +1870,7 @@
 
                     if (isPastDay) {
                         dayDiv.classList.add("past-day");
+                        dayDiv.setAttribute("aria-disabled", "true");
                     }
 
                     if (dateKey === getTodayKey()) {
@@ -1901,7 +1916,15 @@
 
                     dayDiv.appendChild(availabilityDiv);
                     if (!isPastDay) {
+                        dayDiv.setAttribute("role", "button");
+                        dayDiv.tabIndex = 0;
                         dayDiv.onclick = () => toggleSelectedDate(dateObj);
+                        dayDiv.onkeydown = (event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                toggleSelectedDate(dateObj);
+                            }
+                        };
                     }
                     grid.appendChild(dayDiv);
                 }
