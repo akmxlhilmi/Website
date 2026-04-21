@@ -339,6 +339,22 @@
             background: #fafafa;
         }
 
+        .calendar-day.past-day {
+            cursor: default;
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+
+        .calendar-day.past-day:hover,
+        .calendar-day.past-day:active {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+
+        .calendar-day.past-day .day-number {
+            color: #94a3b8;
+        }
+
         .calendar-day.today {
             background: #e0f2fe;
             border-color: #0ea5e9;
@@ -1523,8 +1539,33 @@
                 return window.matchMedia("(max-width: 640px)").matches ? 1 : 2;
             }
 
+            function isPastDateKey(dateKey) {
+                return dateKey < getTodayKey();
+            }
+
+            function prunePastSelectedDates() {
+                let changed = false;
+
+                selectedDates.forEach((dateKey) => {
+                    if (isPastDateKey(dateKey)) {
+                        selectedDates.delete(dateKey);
+                        changed = true;
+                    }
+                });
+
+                return changed;
+            }
+
             function toggleSelectedDate(dateObj) {
                 const dateKey = formatDateKey(dateObj);
+                if (isPastDateKey(dateKey)) {
+                    if (selectedDates.delete(dateKey)) {
+                        updateSelectionToolbar();
+                        renderCalendar();
+                    }
+                    return;
+                }
+
                 if (selectedDates.has(dateKey)) {
                     selectedDates.delete(dateKey);
                 } else {
@@ -1542,6 +1583,7 @@
             }
 
             function updateSelectionToolbar() {
+                prunePastSelectedDates();
                 const count = selectedDates.size;
                 const status = document.getElementById("selectionStatus");
                 const clearButton = document.getElementById("clearSelectionBtn");
@@ -1656,6 +1698,12 @@
                 if (!currentUser) {
                     alert("Please select a user first.");
                     return;
+                }
+
+                const removedPastSelections = prunePastSelectedDates();
+                if (removedPastSelections) {
+                    updateSelectionToolbar();
+                    renderCalendar();
                 }
 
                 const dateKeys = Array.from(selectedDates).sort();
@@ -1775,6 +1823,7 @@
                 const maxVisibleEntries = getVisibleEntryCount();
                 const grid = document.getElementById("calendarGrid");
                 grid.innerHTML = "";
+                prunePastSelectedDates();
 
                 for (let i = 0; i < 42; i += 1) {
                     const dayDiv = document.createElement("div");
@@ -1797,12 +1846,17 @@
                     }
 
                     const dateKey = formatDateKey(dateObj);
+                    const isPastDay = isPastDateKey(dateKey);
                     const dayEntries = freeTimeEntries.filter((entry) => entry.date === dateKey);
                     const sortedEntries = dayEntries.slice().sort((a, b) => {
                         if (a.user === currentUser) return -1;
                         if (b.user === currentUser) return 1;
                         return a.user.localeCompare(b.user);
                     });
+
+                    if (isPastDay) {
+                        dayDiv.classList.add("past-day");
+                    }
 
                     if (dateKey === getTodayKey()) {
                         dayDiv.classList.add("today");
@@ -1846,7 +1900,9 @@
                     }
 
                     dayDiv.appendChild(availabilityDiv);
-                    dayDiv.onclick = () => toggleSelectedDate(dateObj);
+                    if (!isPastDay) {
+                        dayDiv.onclick = () => toggleSelectedDate(dateObj);
+                    }
                     grid.appendChild(dayDiv);
                 }
             }
