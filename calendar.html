@@ -73,6 +73,10 @@
             color: #9f1239;
         }
 
+        .sync-banner.hidden {
+            display: none;
+        }
+
         .sync-dot {
             width: 10px;
             height: 10px;
@@ -928,7 +932,9 @@
             function updateSyncStatus(message, mode) {
                 const banner = getSyncBanner();
                 const status = document.getElementById("syncStatus");
-                banner.className = `sync-banner ${mode || "local"}`;
+                const resolvedMode = mode || "local";
+                banner.className = `sync-banner ${resolvedMode}`;
+                banner.hidden = resolvedMode === "hidden";
                 status.textContent = message;
             }
 
@@ -1373,7 +1379,7 @@
                 }
 
                 supabaseReady = true;
-                updateSyncStatus("Supabase sync is live. Changes will appear on other devices using the same project.", "live");
+                updateSyncStatus("", "hidden");
             }
 
             function stopSyncPolling() {
@@ -1430,7 +1436,7 @@
                     }, handleRealtimeRefresh)
                     .subscribe((status) => {
                         if (status === "SUBSCRIBED") {
-                            updateSyncStatus("Supabase sync is live. Changes will appear on other devices using the same project.", "live");
+                            updateSyncStatus("", "hidden");
                             return;
                         }
 
