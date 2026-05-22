@@ -199,6 +199,15 @@ body {
   box-shadow: 0 8px 18px -6px rgba(24, 119, 242, 0.4);
 }
 
+/* Strava specific hover */
+.strava-icon:hover {
+  background: #fc4c02;
+  border-color: #fc4c02;
+  color: white;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 18px -6px rgba(252, 76, 2, 0.4);
+}
+
 .social-icon:hover i {
   transform: scale(1.08);
 }
