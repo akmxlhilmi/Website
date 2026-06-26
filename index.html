@@ -1,88 +1,172 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="Akmalhilmi — personal introduction website. Futuristic minimalist design.">
-  <title>Akmalhilmi | intro</title>
-  <!-- Google Fonts + modern font stack -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
-  <!-- Font Awesome 6 (brand icons) -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-  <!-- external stylesheet -->
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>akmxlhilmi — student, maker, say hi</title>
+  <meta name="description" content="A warm little corner of the internet for akmxlhilmi — a student collecting the things I make and love, and every way to reach me, gathered in one quiet place.">
+  <meta name="theme-color" content="#F5F1EA">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="akmxlhilmi">
+  <meta property="og:description" content="A student collecting the things I make and love — and every way to reach me, gathered in one quiet place.">
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23F5F1EA'/%3E%3Ctext x='50%25' y='52%25' dominant-baseline='middle' text-anchor='middle' font-family='Georgia,serif' font-size='40' font-weight='700' fill='%23241F1A'%3Ea.%3C/text%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@1,6..72,400;1,6..72,500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="wrapper">
-    <div class="intro-card">
-      <!-- name and tagline -->
-      <h1 class="fullname">@Akmalhilmi</h1>
-      <!-- <p class="tagline">Science Computer</p> -->
-      
-      <!-- introduction bio (personal & authentic) -->
-      <div class="bio">
-        <p>
-          I'm <strong> Muhammad Akmal</strong>,
-        </p>
-        <!-- <p class="second-paragraph">
-          <br> Bachelor's degree student<br>
-          <br> TEST
-        </p> -->
-      </div>
-      
-      <!-- social logos: Instagram + Facebook + Strava (exact required links) -->
-      <div class="social-links" aria-label="Social media profiles">
-        <!-- Instagram logo -> https://www.instagram.com/akmxlhilmi/ -->
-        <a href="https://www.instagram.com/akmxlhilmi/" 
-           target="_blank" 
-           rel="noopener noreferrer" 
-           class="social-icon instagram-icon" 
-           aria-label="Instagram profile (opens new tab)">
-          <i class="fab fa-instagram"></i>
-          <span class="icon-label">Instagram</span>
-        </a>
-        
-        <!-- Facebook logo -> https://www.facebook.com/MuhdAkm4/ -->
-        <a href="https://www.facebook.com/MuhdAkm4/" 
-           target="_blank" 
-           rel="noopener noreferrer" 
-           class="social-icon facebook-icon" 
-           aria-label="Facebook profile (opens new tab)">
-          <i class="fab fa-facebook-f"></i>
-          <span class="icon-label">Facebook</span>
-        </a>
 
-        <!-- Strava logo -> https://strava.app.link/wv0MwnHp2Vb -->
-        <a href="https://strava.app.link/wv0MwnHp2Vb" 
-           target="_blank" 
-           rel="noopener noreferrer" 
-           class="social-icon strava-icon" 
-           aria-label="Strava profile (opens new tab)">
-          <i class="fab fa-strava"></i>
-          <span class="icon-label">Strava</span>
-        </a>
+  <!-- ─────────────────────────  NAV  ───────────────────────── -->
+  <nav id="site-nav" aria-label="Primary">
+    <a class="nav-brand" href="#top">akmxlhilmi</a>
+    <a class="nav-hi" href="#connect">Say hi <span aria-hidden="true">&#8599;</span></a>
+  </nav>
+
+  <main id="site-root">
+
+    <!-- ─────────────────────────  HERO  ───────────────────────── -->
+    <section id="top" class="hero">
+      <div id="hero-glow" class="hero-glow" aria-hidden="true"></div>
+
+      <div class="hero-inner">
+        <div class="reveal hero-photo-wrap" style="--delay:0ms">
+          <div class="hero-photo-ring">
+            <div id="me-photo" class="photo-slot" role="button" tabindex="0"
+                 aria-label="Profile photo. Click or drop an image to set your own.">
+              <img class="photo-slot__img" alt="" hidden>
+              <span class="photo-slot__cap">Photo</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="reveal hero-greeting" style="--delay:90ms">hello, and welcome &mdash;</div>
+
+        <h1 class="reveal hero-title" style="--delay:160ms">
+          <span class="hero-title__im">I&rsquo;m</span>
+          <span class="hero-title__name">akmxlhilmi</span>
+        </h1>
+
+        <p class="reveal hero-lede" style="--delay:250ms">A student collecting the things I make and love &mdash; and every way to reach me, gathered in one quiet place.</p>
+
+        <div class="reveal hero-actions" style="--delay:340ms">
+          <a class="btn-primary" href="#connect">Connect <span aria-hidden="true">&#8594;</span></a>
+          <a class="btn-text" href="#about">More about me <span aria-hidden="true">&#8250;</span></a>
+        </div>
       </div>
 
-      <!-- <div class="quick-links" aria-label="Website pages">
-        <a href="calendar.html"
-           class="page-link calendar-link"
-           aria-label="Open shared calendar">
-          <i class="fas fa-calendar-alt"></i>
-          <span class="icon-label">Open Calendar</span>
-        </a>
-      </div> -->
-      
-      <!-- subtle email hint (optional, adds realism) -->
-      <div class="contact-note">
-        <i class="fas fa-envelope"></i>
-        <span>akmalhilmi244@gmail.com</span>
+      <div id="scroll-cue" class="scroll-cue" aria-hidden="true">
+        <span class="scroll-cue__word">scroll</span>
+        <span class="scroll-cue__arrow">&#8595;</span>
       </div>
-      
-      <!-- footer / signature line with futuristic vibe -->
-      <div class="footer-note">
-        <span>Copyright ©2026 akmxlhilmi All rights Reserved</span>
+    </section>
+
+    <!-- ─────────────────────────  ABOUT  ───────────────────────── -->
+    <section id="about" class="about">
+      <div class="about-inner">
+        <div class="reveal about-eyebrow" style="--delay:0ms">a little about me</div>
+        <p class="reveal about-statement" style="--delay:120ms">I&rsquo;m a student, figuring things out one project at a time. This little corner of the internet holds what I&rsquo;m <em>making</em>, the things I&rsquo;m <em>curious</em> about, and the easiest ways to <em>say hello</em>.</p>
       </div>
-    </div>
+    </section>
+
+    <!-- ─────────────────────────  CONNECT  ───────────────────────── -->
+    <section id="connect" class="connect">
+      <div class="connect-inner">
+        <div class="reveal connect-eyebrow" style="--delay:0ms">stay in touch</div>
+        <h2 class="reveal connect-title" style="--delay:80ms">Let&rsquo;s connect.</h2>
+        <p class="reveal connect-sub" style="--delay:150ms">Find me across the web &mdash; tap any to open.</p>
+
+        <div class="connect-list">
+
+          <div class="reveal" style="--delay:0ms">
+            <a class="link-row" href="https://instagram.com/akmxlhilmi" target="_blank" rel="noopener">
+              <span class="link-row__tile">IG</span>
+              <span class="link-row__body">
+                <span class="link-row__label">Instagram</span>
+                <span class="link-row__handle">@akmxlhilmi</span>
+              </span>
+              <span class="link-row__arrow" aria-hidden="true">&#8599;</span>
+            </a>
+          </div>
+
+          <div class="reveal" style="--delay:60ms">
+            <a class="link-row" href="https://x.com/akmxlhilmi" target="_blank" rel="noopener">
+              <span class="link-row__tile">X</span>
+              <span class="link-row__body">
+                <span class="link-row__label">X</span>
+                <span class="link-row__handle">@akmxlhilmi</span>
+              </span>
+              <span class="link-row__arrow" aria-hidden="true">&#8599;</span>
+            </a>
+          </div>
+
+          <div class="reveal" style="--delay:120ms">
+            <a class="link-row" href="https://github.com/akmxlhilmi" target="_blank" rel="noopener">
+              <span class="link-row__tile">GH</span>
+              <span class="link-row__body">
+                <span class="link-row__label">GitHub</span>
+                <span class="link-row__handle">@akmxlhilmi</span>
+              </span>
+              <span class="link-row__arrow" aria-hidden="true">&#8599;</span>
+            </a>
+          </div>
+
+          <div class="reveal" style="--delay:180ms">
+            <a class="link-row" href="https://www.tiktok.com/@akmxlhilmi" target="_blank" rel="noopener">
+              <span class="link-row__tile">TT</span>
+              <span class="link-row__body">
+                <span class="link-row__label">TikTok</span>
+                <span class="link-row__handle">@akmxlhilmi</span>
+              </span>
+              <span class="link-row__arrow" aria-hidden="true">&#8599;</span>
+            </a>
+          </div>
+
+          <div class="reveal" style="--delay:240ms">
+            <a class="link-row" href="https://linkedin.com/in/akmxlhilmi" target="_blank" rel="noopener">
+              <span class="link-row__tile link-row__tile--in">in</span>
+              <span class="link-row__body">
+                <span class="link-row__label">LinkedIn</span>
+                <span class="link-row__handle">/in/akmxlhilmi</span>
+              </span>
+              <span class="link-row__arrow" aria-hidden="true">&#8599;</span>
+            </a>
+          </div>
+
+          <div class="reveal" style="--delay:300ms">
+            <a class="link-row" href="mailto:hello@akmxlhilmi.com">
+              <span class="link-row__tile link-row__tile--accent">@</span>
+              <span class="link-row__body">
+                <span class="link-row__label">Email</span>
+                <span class="link-row__handle">hello@akmxlhilmi.com</span>
+              </span>
+              <span class="link-row__arrow" aria-hidden="true">&#8599;</span>
+            </a>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────  FOOTER  ───────────────────────── -->
+    <footer class="site-footer">
+      <div class="reveal footer-mark" style="--delay:0ms">a.</div>
+      <div class="reveal footer-thanks" style="--delay:80ms">thanks for stopping by.</div>
+      <div class="reveal footer-meta" style="--delay:150ms">
+        <span>&copy; 2026 akmxlhilmi</span>
+        <span class="footer-meta__dot">&middot;</span>
+        <span>made with care</span>
+      </div>
+      <a class="reveal footer-top" href="#top" style="--delay:210ms">Back to top <span aria-hidden="true">&#8593;</span></a>
+    </footer>
+
   </main>
+
+  <script src="script.js"></script>
 </body>
 </html>
