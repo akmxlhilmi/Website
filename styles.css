@@ -402,17 +402,15 @@ a { color: inherit; }
 .footer-top:hover { color: var(--ink); }
 
 /* ----------------------------------------------------------------
-   Photo slot — drag / click to fill
+   Photo slot — fixed
    ---------------------------------------------------------------- */
 .photo-slot {
   position: relative;
   width: 112px;
   height: 112px;
   display: block;
-  cursor: pointer;
   background:
     radial-gradient(120% 120% at 30% 22%, #F1EADD 0%, #E7DCC9 60%, #DED1B9 100%);
-  outline: none;
 }
 .photo-slot__img {
   position: absolute;
@@ -436,11 +434,6 @@ a { color: inherit; }
   pointer-events: none;
 }
 .photo-slot.has-image .photo-slot__cap { display: none; }
-.photo-slot:focus-visible { box-shadow: 0 0 0 3px rgba(155, 107, 71, 0.45); }
-.photo-slot.is-drop {
-  box-shadow: 0 0 0 3px rgba(155, 107, 71, 0.6) inset;
-}
-.photo-slot.is-drop .photo-slot__cap { color: var(--accent); }
 
 /* ----------------------------------------------------------------
    Reduced motion

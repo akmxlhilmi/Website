@@ -70,73 +70,25 @@
   window.setTimeout(checkReveals, 200);
 
   /* ---------------------------------------------------------------
-     Photo slot — drag an image onto it, or click to browse.
-     Persisted to localStorage so it survives a reload.
+     Photo slot — Fixed
      --------------------------------------------------------------- */
   (function initPhotoSlot() {
     var slot = document.getElementById('me-photo');
     if (!slot) return;
 
     var img = slot.querySelector('.photo-slot__img');
-    var STORE_KEY = 'akmxlhilmi:me-photo';
-    var MAX_BYTES = 6 * 1024 * 1024; // 6 MB guardrail
+    if (!img) return;
 
-    // Hidden file input for click-to-browse
-    var fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'image/*';
-    fileInput.style.display = 'none';
-    document.body.appendChild(fileInput);
+    function ok() {slot.classList.add('has-image')}
+    function fail() {slot.classList.remove('has-image'); img.style.display = 'none';}
 
-    function apply(dataUrl) {
-      if (!dataUrl) return;
-      img.src = dataUrl;
-      img.hidden = false;
-      slot.classList.add('has-image');
+    if (img.complete){
+      (img.naturalWidth > 0 ? ok : fail)();
+    } else {
+      img.addEventListener('load',ok);
+      img.addEventListener('error', fail)
     }
-
-    function readFile(file) {
-      if (!file || file.type.indexOf('image/') !== 0) return;
-      if (file.size > MAX_BYTES) return;
-      var reader = new FileReader();
-      reader.onload = function (e) {
-        var url = e.target.result;
-        apply(url);
-        try { localStorage.setItem(STORE_KEY, url); } catch (err) { /* quota — ignore */ }
-      };
-      reader.readAsDataURL(file);
-    }
-
-    // Restore a previously dropped image
-    try {
-      var saved = localStorage.getItem(STORE_KEY);
-      if (saved) apply(saved);
-    } catch (err) { /* storage blocked — ignore */ }
-
-    // Drag & drop
-    slot.addEventListener('dragenter', function (e) { e.preventDefault(); slot.classList.add('is-drop'); });
-    slot.addEventListener('dragover',  function (e) {
-      e.preventDefault();
-      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-      slot.classList.add('is-drop');
-    });
-    slot.addEventListener('dragleave', function ()  { slot.classList.remove('is-drop'); });
-    slot.addEventListener('drop', function (e) {
-      e.preventDefault();
-      slot.classList.remove('is-drop');
-      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
-        readFile(e.dataTransfer.files[0]);
-      }
-    });
-
-    // Click / keyboard to browse
-    slot.addEventListener('click', function () { fileInput.click(); });
-    slot.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
-    });
-    fileInput.addEventListener('change', function () {
-      if (fileInput.files && fileInput.files.length) readFile(fileInput.files[0]);
-    });
+    
   })();
 
 })();
